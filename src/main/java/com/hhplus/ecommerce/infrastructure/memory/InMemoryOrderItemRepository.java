@@ -57,6 +57,7 @@ public class InMemoryOrderItemRepository implements OrderItemRepository {
 
 
     @Override
+    @Deprecated
     public List<OrderItem> getOrderItemByTopFive() {
         LocalDateTime threeDaysAgo = LocalDateTime.now().minusDays(3);
 
@@ -80,6 +81,29 @@ public class InMemoryOrderItemRepository implements OrderItemRepository {
         return store.values().stream()
                 .filter(item -> topProductIds.contains(item.getProduct().getId()))
                 .filter(item -> item.getCreatedAt().isAfter(threeDaysAgo))
+                .toList();
+    }
+
+    @Override
+    public List<com.hhplus.ecommerce.domain.dto.ProductSalesDto> getTopSellingProducts(int limit) {
+        LocalDateTime threeDaysAgo = LocalDateTime.now().minusDays(3);
+
+        // 1. 최근 3일간의 주문 항목을 필터링하고 상품별로 판매 수량 집계
+        Map<com.hhplus.ecommerce.domain.entity.Product, Integer> productSales = store.values().stream()
+                .filter(item -> item.getCreatedAt().isAfter(threeDaysAgo))
+                .collect(Collectors.groupingBy(
+                        OrderItem::getProduct,
+                        Collectors.summingInt(item -> item.getQuantity().getValue())
+                ));
+
+        // 2. 판매량 기준 내림차순 정렬 후 상위 N개 추출하여 DTO로 변환
+        return productSales.entrySet().stream()
+                .sorted(Map.Entry.<com.hhplus.ecommerce.domain.entity.Product, Integer>comparingByValue().reversed())
+                .limit(limit)
+                .map(entry -> com.hhplus.ecommerce.domain.dto.ProductSalesDto.of(
+                        entry.getKey(),
+                        entry.getValue()
+                ))
                 .toList();
     }
 }

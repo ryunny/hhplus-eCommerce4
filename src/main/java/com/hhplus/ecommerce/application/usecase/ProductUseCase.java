@@ -1,65 +1,77 @@
 package com.hhplus.ecommerce.application.usecase;
 
-import com.hhplus.ecommerce.domain.entity.OrderItem;
+import com.hhplus.ecommerce.domain.dto.ProductSalesDto;
 import com.hhplus.ecommerce.domain.entity.Product;
-import com.hhplus.ecommerce.domain.repository.OrderItemRepository;
-import com.hhplus.ecommerce.domain.repository.ProductRepository;
+import com.hhplus.ecommerce.domain.service.ProductService;
 import com.hhplus.ecommerce.presentation.dto.PopularProductResponse;
 import org.springframework.stereotype.Service;
 
-import java.util.LinkedHashMap;
 import java.util.List;
-import java.util.Map;
-import java.util.stream.Collectors;
 
+/**
+ * 상품 관련 유스케이스
+ * ProductService를 사용하여 상품 관련 기능을 제공합니다.
+ */
 @Service
 public class ProductUseCase {
 
-    private final ProductRepository productRepository;
-    private final OrderItemRepository orderItemRepository;
+    private final ProductService productService;
 
-    public ProductUseCase(ProductRepository productRepository, OrderItemRepository orderItemRepository) {
-        this.productRepository = productRepository;
-        this.orderItemRepository = orderItemRepository;
-    }
-
-    public List<Product> getAllProducts() {
-        return productRepository.findAll();
-    }
-
-    public Product getProduct(Long productId) {
-        return productRepository.findById(productId)
-                .orElseThrow(() -> new IllegalArgumentException("상품을 찾을 수 없습니다: " + productId));
-    }
-
-    public List<Product> getProductsByCategory(Long categoryId) {
-        return productRepository.findByCategoryId(categoryId);
+    public ProductUseCase(ProductService productService) {
+        this.productService = productService;
     }
 
     /**
-     * 인기 상품 통계 조회 (최근 3일, Top 5)
+     * 전체 상품 조회
+     *
+     * @return 전체 상품 목록
+     */
+    public List<Product> getAllProducts() {
+        return productService.getAllProducts();
+    }
+
+    /**
+     * 상품 단건 조회
+     *
+     * @param productId 상품 ID
+     * @return 상품
+     */
+    public Product getProduct(Long productId) {
+        return productService.getProduct(productId);
+    }
+
+    /**
+     * 카테고리별 상품 조회
+     *
+     * @param categoryId 카테고리 ID
+     * @return 카테고리에 속한 상품 목록
+     */
+    public List<Product> getProductsByCategory(Long categoryId) {
+        // TODO: ProductService에 카테고리별 조회 메서드 추가 필요
+        // 현재는 ProductRepository를 직접 호출하지 않으므로 제거
+        throw new UnsupportedOperationException("카테고리별 조회는 Service 레이어로 이동 예정");
+    }
+
+    /**
+     * 인기 상품 통계 조회 (개선됨)
      *
      * 최근 3일간 주문된 상품 중 판매량 기준 상위 5개 상품의 통계를 반환합니다.
+     * Repository에서 DTO를 직접 반환하므로 중복 연산이 제거되었습니다.
      *
      * @return 인기 상품 목록 (상품 정보 + 총 판매 수량)
      */
     public List<PopularProductResponse> getPopularProducts() {
-        // 1. 최근 3일 Top 5 상품의 OrderItem 조회
-        List<OrderItem> topOrderItems = orderItemRepository.getOrderItemByTopFive();
+        // ProductService에서 DTO를 받아서 Response로 변환만 수행
+        List<ProductSalesDto> salesDtos = productService.getTopSellingProducts(5);
 
-        // 2. 상품별 총 판매 수량 집계
-        Map<Product, Integer> productSalesMap = topOrderItems.stream()
-                .collect(Collectors.groupingBy(
-                        OrderItem::getProduct,
-                        LinkedHashMap::new,
-                        Collectors.summingInt(item -> item.getQuantity().getValue())
-                ));
-
-        // 3. 판매량 기준 내림차순 정렬 후 Top 5 추출
-        return productSalesMap.entrySet().stream()
-                .sorted(Map.Entry.<Product, Integer>comparingByValue().reversed())
-                .limit(5)
-                .map(entry -> PopularProductResponse.of(entry.getKey(), entry.getValue()))
-                .collect(Collectors.toList());
+        return salesDtos.stream()
+                .map(dto -> new PopularProductResponse(
+                        dto.productId(),
+                        dto.productName(),
+                        dto.price(),
+                        dto.totalSalesQuantity(),
+                        dto.categoryName()
+                ))
+                .toList();
     }
 }

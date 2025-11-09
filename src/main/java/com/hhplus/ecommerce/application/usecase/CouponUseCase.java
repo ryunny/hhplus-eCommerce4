@@ -21,6 +21,15 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.locks.ReentrantLock;
 
+/**
+ * 쿠폰 발급 및 관리 유스케이스
+ *
+ * 쿠폰 발급은 동시성 제어가 중요한 비즈니스 로직입니다.
+ * 현재는 ReentrantLock으로 제어하고 있으나, DB 전환 시 다음과 같이 변경 필요:
+ * - couponLocks 제거
+ * - Repository에 @Lock(LockModeType.PESSIMISTIC_WRITE) 적용
+ * - @Transactional 추가
+ */
 @Slf4j
 @Service
 public class CouponUseCase {
@@ -30,6 +39,7 @@ public class CouponUseCase {
     private final UserRepository userRepository;
     private final CouponQueueRepository couponQueueRepository;
 
+    // TODO: DB 전환 시 제거 예정
     // 쿠폰별 락 객체를 관리하는 Map (ReentrantLock 사용)
     private final ConcurrentHashMap<Long, ReentrantLock> couponLocks = new ConcurrentHashMap<>();
 

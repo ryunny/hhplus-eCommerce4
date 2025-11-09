@@ -33,13 +33,24 @@ class OrderConcurrencyTest {
         MockProductRepository productRepository = new MockProductRepository();
         MockUserCouponRepository userCouponRepository = new MockUserCouponRepository();
 
+        // Service 생성
+        com.hhplus.ecommerce.domain.service.OrderService orderService =
+                new com.hhplus.ecommerce.domain.service.OrderService(orderRepository, orderItemRepository);
+        com.hhplus.ecommerce.domain.service.ProductService productService =
+                new com.hhplus.ecommerce.domain.service.ProductService(productRepository, orderItemRepository);
+        com.hhplus.ecommerce.domain.service.UserService userService =
+                new com.hhplus.ecommerce.domain.service.UserService(userRepository);
+        com.hhplus.ecommerce.domain.service.CouponService couponService =
+                new com.hhplus.ecommerce.domain.service.CouponService(userCouponRepository);
+        com.hhplus.ecommerce.domain.service.PaymentService paymentService =
+                new com.hhplus.ecommerce.domain.service.PaymentService(paymentRepository);
+
         OrderUseCase orderUseCase = new OrderUseCase(
-                orderRepository,
-                orderItemRepository,
-                paymentRepository,
-                userRepository,
-                productRepository,
-                userCouponRepository
+                orderService,
+                productService,
+                userService,
+                couponService,
+                paymentService
         );
 
         // 재고 10개인 상품 추가
@@ -106,13 +117,24 @@ class OrderConcurrencyTest {
         MockProductRepository productRepository = new MockProductRepository();
         MockUserCouponRepository userCouponRepository = new MockUserCouponRepository();
 
+        // Service 생성
+        com.hhplus.ecommerce.domain.service.OrderService orderService =
+                new com.hhplus.ecommerce.domain.service.OrderService(orderRepository, orderItemRepository);
+        com.hhplus.ecommerce.domain.service.ProductService productService =
+                new com.hhplus.ecommerce.domain.service.ProductService(productRepository, orderItemRepository);
+        com.hhplus.ecommerce.domain.service.UserService userService =
+                new com.hhplus.ecommerce.domain.service.UserService(userRepository);
+        com.hhplus.ecommerce.domain.service.CouponService couponService =
+                new com.hhplus.ecommerce.domain.service.CouponService(userCouponRepository);
+        com.hhplus.ecommerce.domain.service.PaymentService paymentService =
+                new com.hhplus.ecommerce.domain.service.PaymentService(paymentRepository);
+
         OrderUseCase orderUseCase = new OrderUseCase(
-                orderRepository,
-                orderItemRepository,
-                paymentRepository,
-                userRepository,
-                productRepository,
-                userCouponRepository
+                orderService,
+                productService,
+                userService,
+                couponService,
+                paymentService
         );
 
         // 충분한 재고의 상품 생성
@@ -174,13 +196,24 @@ class OrderConcurrencyTest {
         MockProductRepository productRepository = new MockProductRepository();
         MockUserCouponRepository userCouponRepository = new MockUserCouponRepository();
 
+        // Service 생성
+        com.hhplus.ecommerce.domain.service.OrderService orderService =
+                new com.hhplus.ecommerce.domain.service.OrderService(orderRepository, orderItemRepository);
+        com.hhplus.ecommerce.domain.service.ProductService productService =
+                new com.hhplus.ecommerce.domain.service.ProductService(productRepository, orderItemRepository);
+        com.hhplus.ecommerce.domain.service.UserService userService =
+                new com.hhplus.ecommerce.domain.service.UserService(userRepository);
+        com.hhplus.ecommerce.domain.service.CouponService couponService =
+                new com.hhplus.ecommerce.domain.service.CouponService(userCouponRepository);
+        com.hhplus.ecommerce.domain.service.PaymentService paymentService =
+                new com.hhplus.ecommerce.domain.service.PaymentService(paymentRepository);
+
         OrderUseCase orderUseCase = new OrderUseCase(
-                orderRepository,
-                orderItemRepository,
-                paymentRepository,
-                userRepository,
-                productRepository,
-                userCouponRepository
+                orderService,
+                productService,
+                userService,
+                couponService,
+                paymentService
         );
 
         // 상품 3개 (MockProductRepository 초기 데이터)

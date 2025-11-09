@@ -1,6 +1,8 @@
 package com.hhplus.ecommerce.test.mocks;
 
+import com.hhplus.ecommerce.domain.dto.ProductSalesDto;
 import com.hhplus.ecommerce.domain.entity.OrderItem;
+import com.hhplus.ecommerce.domain.entity.Product;
 import com.hhplus.ecommerce.domain.repository.OrderItemRepository;
 
 import java.time.LocalDateTime;
@@ -41,6 +43,7 @@ public class MockOrderItemRepository implements OrderItemRepository {
     }
 
     @Override
+    @Deprecated
     public List<OrderItem> getOrderItemByTopFive() {
         LocalDateTime threeDaysAgo = LocalDateTime.now().minusDays(3);
 
@@ -63,6 +66,26 @@ public class MockOrderItemRepository implements OrderItemRepository {
         return store.values().stream()
                 .filter(item -> topProductIds.contains(item.getProduct().getId()))
                 .filter(item -> item.getOrder().getCreatedAt().isAfter(threeDaysAgo))
+                .toList();
+    }
+
+    @Override
+    public List<ProductSalesDto> getTopSellingProducts(int limit) {
+        LocalDateTime threeDaysAgo = LocalDateTime.now().minusDays(3);
+
+        // 최근 3일간의 주문 항목을 필터링하고 상품별로 판매 수량 집계
+        Map<Product, Integer> productSales = store.values().stream()
+                .filter(item -> item.getOrder().getCreatedAt().isAfter(threeDaysAgo))
+                .collect(Collectors.groupingBy(
+                        OrderItem::getProduct,
+                        Collectors.summingInt(item -> item.getQuantity().getValue())
+                ));
+
+        // 판매량 기준 내림차순 정렬 후 상위 N개 추출하여 DTO로 변환
+        return productSales.entrySet().stream()
+                .sorted(Map.Entry.<Product, Integer>comparingByValue().reversed())
+                .limit(limit)
+                .map(entry -> ProductSalesDto.of(entry.getKey(), entry.getValue()))
                 .toList();
     }
 
