@@ -13,22 +13,16 @@ import com.hhplus.ecommerce.domain.repository.UserRepository;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
-import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.TimeUnit;
-import java.util.concurrent.locks.ReentrantLock;
 
 /**
  * 쿠폰 발급 및 관리 유스케이스
  *
- * 쿠폰 발급은 동시성 제어가 중요한 비즈니스 로직입니다.
- * 현재는 ReentrantLock으로 제어하고 있으나, DB 전환 시 다음과 같이 변경 필요:
- * - couponLocks 제거
- * - Repository에 @Lock(LockModeType.PESSIMISTIC_WRITE) 적용
- * - @Transactional 추가
+ * 비관적 락을 활용하여 쿠폰 발급 시 동시성 제어
  */
 @Slf4j
 @Service
@@ -38,12 +32,6 @@ public class CouponUseCase {
     private final UserCouponRepository userCouponRepository;
     private final UserRepository userRepository;
     private final CouponQueueRepository couponQueueRepository;
-
-    // TODO: DB 전환 시 제거 예정
-    // 쿠폰별 락 객체를 관리하는 Map (ReentrantLock 사용)
-    private final ConcurrentHashMap<Long, ReentrantLock> couponLocks = new ConcurrentHashMap<>();
-
-    private static final long LOCK_TIMEOUT_SECONDS = 5;
 
     public CouponUseCase(CouponRepository couponRepository,
                          UserCouponRepository userCouponRepository,
@@ -56,7 +44,7 @@ public class CouponUseCase {
     }
 
     public List<Coupon> getIssuableCoupons() {
-        return couponRepository.findIssuableCoupons();
+        return couponRepository.findIssuableCoupons(LocalDateTime.now());
     }
 
     public List<UserCoupon> getUserCoupons(Long userId) {
@@ -270,7 +258,7 @@ public class CouponUseCase {
      */
     @Scheduled(fixedDelay = 1000)
     public void processQueue() {
-        List<Coupon> issuableCoupons = couponRepository.findIssuableCoupons();
+        List<Coupon> issuableCoupons = couponRepository.findIssuableCoupons(LocalDateTime.now());
 
         for (Coupon coupon : issuableCoupons) {
             processQueueForCoupon(coupon);

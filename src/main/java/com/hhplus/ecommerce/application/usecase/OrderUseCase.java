@@ -8,6 +8,7 @@ import com.hhplus.ecommerce.domain.vo.Quantity;
 import com.hhplus.ecommerce.presentation.dto.CreateOrderRequest;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -15,8 +16,6 @@ import java.util.List;
 /**
  * 주문 관련 유스케이스
  * 여러 Service를 조합하여 주문 플로우를 구성합니다.
- *
- * DB 전환 시: @Transactional 추가로 자동 롤백 처리
  */
 @Slf4j
 @Service
@@ -42,16 +41,13 @@ public class OrderUseCase {
 
     /**
      * 주문 생성 및 결제
-     *
-     * DB 전환 시:
-     * - @Transactional 추가
-     * - 예외 발생 시 자동 롤백
-     * - Repository에 @Lock(LockModeType.PESSIMISTIC_WRITE) 적용
+     * 트랜잭션 내에서 실행되어 예외 발생 시 자동 롤백됩니다.
      *
      * @param userId 사용자 ID
      * @param request 주문 요청 DTO
      * @return 생성된 주문
      */
+    @Transactional
     public Order createOrderAndPay(Long userId, CreateOrderRequest request) {
         // 1. 사용자 조회
         User user = userService.getUser(userId);

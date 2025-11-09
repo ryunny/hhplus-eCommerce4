@@ -8,6 +8,7 @@ import com.hhplus.ecommerce.domain.repository.ProductRepository;
 import com.hhplus.ecommerce.domain.repository.UserRepository;
 import com.hhplus.ecommerce.domain.vo.Quantity;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
 import java.util.Optional;
@@ -27,6 +28,7 @@ public class CartUseCase {
         this.productRepository = productRepository;
     }
 
+    @Transactional
     public CartItem addToCart(Long userId, Long productId, Integer quantity) {
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new IllegalArgumentException("사용자를 찾을 수 없습니다: " + userId));
@@ -59,10 +61,12 @@ public class CartUseCase {
         return cartItemRepository.findByUserId(userId);
     }
 
+    @Transactional
     public void removeFromCart(Long cartItemId) {
         cartItemRepository.deleteById(cartItemId);
     }
 
+    @Transactional
     public void clearCart(Long userId) {
         cartItemRepository.deleteByUserId(userId);
     }
