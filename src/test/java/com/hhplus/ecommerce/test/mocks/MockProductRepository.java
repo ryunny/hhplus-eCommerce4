@@ -51,10 +51,25 @@ public class MockProductRepository implements ProductRepository {
     }
 
     @Override
+    public List<Product> findAllById(Iterable<Long> ids) {
+        List<Product> result = new ArrayList<>();
+        for (Long id : ids) {
+            findById(id).ifPresent(result::add);
+        }
+        return result;
+    }
+
+    @Override
     public List<Product> findByCategoryId(Long categoryId) {
         return products.values().stream()
                 .filter(product -> product.getCategory().getId().equals(categoryId))
                 .toList();
+    }
+
+    @Override
+    public Optional<Product> findByIdWithLock(Long id) {
+        // Mock에서는 락 없이 일반 조회와 동일하게 동작
+        return findById(id);
     }
 
     @Override

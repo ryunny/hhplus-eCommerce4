@@ -46,8 +46,17 @@ public class MockOrderRepository implements OrderRepository {
     }
 
     @Override
-    public List<Order> findAll() {
-        return new ArrayList<>(orders.values());
+    public List<Order> findByUserPublicId(String publicId) {
+        return orders.values().stream()
+                .filter(order -> order.getUser().getPublicId().equals(publicId))
+                .toList();
+    }
+
+    @Override
+    public Optional<Order> findByOrderNumber(String orderNumber) {
+        return orders.values().stream()
+                .filter(order -> order.getOrderNumber().equals(orderNumber))
+                .findFirst();
     }
 
     @Override

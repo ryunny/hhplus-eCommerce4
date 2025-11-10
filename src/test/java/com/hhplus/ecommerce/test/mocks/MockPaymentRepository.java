@@ -34,8 +34,10 @@ public class MockPaymentRepository implements PaymentRepository {
     }
 
     @Override
-    public List<Payment> findAll() {
-        return new ArrayList<>(store.values());
+    public Optional<Payment> findByPaymentId(String paymentId) {
+        return store.values().stream()
+                .filter(payment -> payment.getPaymentId().equals(paymentId))
+                .findFirst();
     }
 
     @Override

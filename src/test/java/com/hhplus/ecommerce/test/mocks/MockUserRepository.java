@@ -52,8 +52,22 @@ public class MockUserRepository implements UserRepository {
     }
 
     @Override
-    public List<User> findAll() {
-        return new ArrayList<>(users.values());
+    public Optional<User> findByPublicId(String publicId) {
+        return users.values().stream()
+                .filter(user -> user.getPublicId().equals(publicId))
+                .findFirst();
+    }
+
+    @Override
+    public Optional<User> findByIdWithLock(Long id) {
+        // Mock에서는 락 없이 일반 조회와 동일하게 동작
+        return findById(id);
+    }
+
+    @Override
+    public Optional<User> findByPublicIdWithLock(String publicId) {
+        // Mock에서는 락 없이 일반 조회와 동일하게 동작
+        return findByPublicId(publicId);
     }
 
     @Override

@@ -61,10 +61,16 @@ public class MockCouponRepository implements CouponRepository {
     }
 
     @Override
-    public List<Coupon> findIssuableCoupons() {
+    public List<Coupon> findIssuableCoupons(LocalDateTime now) {
         return coupons.values().stream()
                 .filter(Coupon::isIssuable)
                 .toList();
+    }
+
+    @Override
+    public Optional<Coupon> findByIdWithLock(Long id) {
+        // Mock에서는 락 없이 일반 조회와 동일하게 동작
+        return findById(id);
     }
 
     @Override

@@ -37,6 +37,11 @@ public class MockUserCouponRepository implements UserCouponRepository {
     }
 
     @Override
+    public List<UserCoupon> findAll() {
+        return new ArrayList<>(userCoupons.values());
+    }
+
+    @Override
     public List<UserCoupon> findByUserId(Long userId) {
         return userCoupons.values().stream()
                 .filter(uc -> uc.getUser().getId().equals(userId))
