@@ -1,6 +1,11 @@
 package com.hhplus.ecommerce.presentation.controller;
 
-import com.hhplus.ecommerce.application.usecase.CouponUseCase;
+import com.hhplus.ecommerce.application.command.IssueCouponCommand;
+import com.hhplus.ecommerce.application.command.JoinCouponQueueCommand;
+import com.hhplus.ecommerce.application.query.GetAvailableCouponsQuery;
+import com.hhplus.ecommerce.application.query.GetQueueStatusQuery;
+import com.hhplus.ecommerce.application.query.GetUserCouponsQuery;
+import com.hhplus.ecommerce.application.usecase.coupon.*;
 import com.hhplus.ecommerce.domain.entity.Coupon;
 import com.hhplus.ecommerce.domain.entity.CouponQueue;
 import com.hhplus.ecommerce.domain.entity.UserCoupon;
@@ -19,11 +24,16 @@ import java.util.List;
 @RequiredArgsConstructor
 public class CouponController {
 
-    private final CouponUseCase couponUseCase;
+    private final GetIssuableCouponsUseCase getIssuableCouponsUseCase;
+    private final IssueCouponUseCase issueCouponUseCase;
+    private final GetUserCouponsUseCase getUserCouponsUseCase;
+    private final GetAvailableCouponsUseCase getAvailableCouponsUseCase;
+    private final JoinCouponQueueUseCase joinCouponQueueUseCase;
+    private final GetQueueStatusUseCase getQueueStatusUseCase;
 
     @GetMapping("/issuable")
     public ResponseEntity<List<CouponResponse>> getIssuableCoupons() {
-        List<Coupon> coupons = couponUseCase.getIssuableCoupons();
+        List<Coupon> coupons = getIssuableCouponsUseCase.execute();
         List<CouponResponse> response = coupons.stream()
                 .map(CouponResponse::from)
                 .toList();
@@ -34,7 +44,8 @@ public class CouponController {
     public ResponseEntity<?> issueCoupon(
             @PathVariable Long couponId,
             @PathVariable Long userId) {
-        UserCoupon userCoupon = couponUseCase.issueCoupon(userId, couponId);
+        IssueCouponCommand command = new IssueCouponCommand(userId, couponId);
+        UserCoupon userCoupon = issueCouponUseCase.execute(command);
 
         if (userCoupon == null) {
             // 대기열 방식: 대기열에 추가됨
@@ -48,7 +59,8 @@ public class CouponController {
 
     @GetMapping("/user/{userId}")
     public ResponseEntity<List<UserCouponResponse>> getUserCoupons(@PathVariable Long userId) {
-        List<UserCoupon> userCoupons = couponUseCase.getUserCoupons(userId);
+        GetUserCouponsQuery query = new GetUserCouponsQuery(userId);
+        List<UserCoupon> userCoupons = getUserCouponsUseCase.execute(query);
         List<UserCouponResponse> response = userCoupons.stream()
                 .map(UserCouponResponse::from)
                 .toList();
@@ -57,17 +69,12 @@ public class CouponController {
 
     @GetMapping("/user/{userId}/available")
     public ResponseEntity<List<UserCouponResponse>> getAvailableCoupons(@PathVariable Long userId) {
-        List<UserCoupon> userCoupons = couponUseCase.getAvailableCoupons(userId);
+        GetAvailableCouponsQuery query = new GetAvailableCouponsQuery(userId);
+        List<UserCoupon> userCoupons = getAvailableCouponsUseCase.execute(query);
         List<UserCouponResponse> response = userCoupons.stream()
                 .map(UserCouponResponse::from)
                 .toList();
         return ResponseEntity.ok(response);
-    }
-
-    @PostMapping("/expire")
-    public ResponseEntity<Void> expireOldCoupons() {
-        couponUseCase.expireOldCoupons();
-        return ResponseEntity.ok().build();
     }
 
     // ===== 대기열 API =====
@@ -79,7 +86,8 @@ public class CouponController {
     public ResponseEntity<CouponQueueResponse> joinQueue(
             @PathVariable Long couponId,
             @PathVariable Long userId) {
-        CouponQueue queue = couponUseCase.joinQueue(userId, couponId);
+        JoinCouponQueueCommand command = new JoinCouponQueueCommand(userId, couponId);
+        CouponQueue queue = joinCouponQueueUseCase.execute(command);
         return ResponseEntity.ok(CouponQueueResponse.from(queue));
     }
 
@@ -90,7 +98,8 @@ public class CouponController {
     public ResponseEntity<CouponQueueResponse> getQueueStatus(
             @PathVariable Long couponId,
             @PathVariable Long userId) {
-        CouponQueue queue = couponUseCase.getQueueStatus(userId, couponId);
+        GetQueueStatusQuery query = new GetQueueStatusQuery(userId, couponId);
+        CouponQueue queue = getQueueStatusUseCase.execute(query);
         return ResponseEntity.ok(CouponQueueResponse.from(queue));
     }
 }

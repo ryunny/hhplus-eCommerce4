@@ -8,6 +8,7 @@ import com.hhplus.ecommerce.domain.vo.Quantity;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -111,6 +112,7 @@ public class ProductService {
      * @return 상품 판매 통계 DTO 목록
      */
     public List<ProductSalesDto> getTopSellingProducts(int limit) {
-        return orderItemRepository.getTopSellingProducts(limit);
+        LocalDateTime threeDaysAgo = LocalDateTime.now().minusDays(3);
+        return orderItemRepository.getTopSellingProducts(threeDaysAgo, limit);
     }
 }

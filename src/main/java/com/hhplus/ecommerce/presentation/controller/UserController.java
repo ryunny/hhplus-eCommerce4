@@ -1,6 +1,9 @@
 package com.hhplus.ecommerce.presentation.controller;
 
-import com.hhplus.ecommerce.application.usecase.UserBalanceUseCase;
+import com.hhplus.ecommerce.application.command.ChargeBalanceCommand;
+import com.hhplus.ecommerce.application.query.GetBalanceQuery;
+import com.hhplus.ecommerce.application.usecase.user.ChargeBalanceUseCase;
+import com.hhplus.ecommerce.application.usecase.user.GetBalanceUseCase;
 import com.hhplus.ecommerce.domain.entity.User;
 import com.hhplus.ecommerce.presentation.dto.ChargeBalanceRequest;
 import com.hhplus.ecommerce.presentation.dto.UserBalanceResponse;
@@ -13,19 +16,22 @@ import org.springframework.web.bind.annotation.*;
 @RequiredArgsConstructor
 public class UserController {
 
-    private final UserBalanceUseCase userBalanceUseCase;
+    private final ChargeBalanceUseCase chargeBalanceUseCase;
+    private final GetBalanceUseCase getBalanceUseCase;
 
     @PostMapping("/{userId}/balance/charge")
     public ResponseEntity<UserBalanceResponse> chargeBalance(
             @PathVariable Long userId,
             @RequestBody ChargeBalanceRequest request) {
-        User user = userBalanceUseCase.chargeBalance(userId, request.amount());
+        ChargeBalanceCommand command = new ChargeBalanceCommand(userId, request.amount());
+        User user = chargeBalanceUseCase.execute(command);
         return ResponseEntity.ok(new UserBalanceResponse(user.getId(), user.getBalance().getAmount()));
     }
 
     @GetMapping("/{userId}/balance")
     public ResponseEntity<UserBalanceResponse> getBalance(@PathVariable Long userId) {
-        User user = userBalanceUseCase.getBalance(userId);
+        GetBalanceQuery query = new GetBalanceQuery(userId);
+        User user = getBalanceUseCase.execute(query);
         return ResponseEntity.ok(new UserBalanceResponse(user.getId(), user.getBalance().getAmount()));
     }
 }

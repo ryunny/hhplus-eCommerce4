@@ -62,12 +62,14 @@ public class UserService {
      *
      * @param userId 사용자 ID
      * @param amount 충전할 금액
+     * @return 충전 후 사용자 정보
      */
     @Transactional
-    public void chargeBalance(Long userId, Money amount) {
+    public User chargeBalance(Long userId, Money amount) {
         User user = userRepository.findByIdWithLock(userId)
                 .orElseThrow(() -> new IllegalArgumentException("사용자를 찾을 수 없습니다: " + userId));
         user.chargeBalance(amount);
         // 더티 체킹으로 자동 저장 (save() 불필요)
+        return user;
     }
 }

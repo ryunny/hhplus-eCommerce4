@@ -1,4 +1,4 @@
-package com.hhplus.ecommerce.application.usecase;
+package com.hhplus.ecommerce.application.usecase.order;
 
 import com.hhplus.ecommerce.domain.entity.*;
 import com.hhplus.ecommerce.domain.service.*;
@@ -10,16 +10,23 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.util.ArrayList;
 import java.util.List;
 
 /**
- * 주문 관련 유스케이스
- * 여러 Service를 조합하여 주문 플로우를 구성합니다.
+ * 주문 생성 및 결제 UseCase
+ *
+ * User Story: "사용자가 주문을 생성하고 결제한다"
+ *
+ * 여러 Service를 조합하여 주문 플로우를 구성합니다:
+ * - UserService: 사용자 조회, 잔액 검증/차감
+ * - ProductService: 상품 조회, 재고 검증/차감
+ * - OrderService: 주문 생성, 주문 아이템 생성
+ * - CouponService: 쿠폰 사용, 할인 계산
+ * - PaymentService: 결제 생성, 데이터 플랫폼 전송
  */
 @Slf4j
 @Service
-public class OrderUseCase {
+public class PlaceOrderUseCase {
 
     private final OrderService orderService;
     private final ProductService productService;
@@ -27,11 +34,11 @@ public class OrderUseCase {
     private final CouponService couponService;
     private final PaymentService paymentService;
 
-    public OrderUseCase(OrderService orderService,
-                       ProductService productService,
-                       UserService userService,
-                       CouponService couponService,
-                       PaymentService paymentService) {
+    public PlaceOrderUseCase(OrderService orderService,
+                            ProductService productService,
+                            UserService userService,
+                            CouponService couponService,
+                            PaymentService paymentService) {
         this.orderService = orderService;
         this.productService = productService;
         this.userService = userService;
@@ -40,7 +47,7 @@ public class OrderUseCase {
     }
 
     /**
-     * 주문 생성 및 결제
+     * 주문 생성 및 결제 실행
      * 트랜잭션 내에서 실행되어 예외 발생 시 자동 롤백됩니다.
      *
      * @param userId 사용자 ID
@@ -48,7 +55,7 @@ public class OrderUseCase {
      * @return 생성된 주문
      */
     @Transactional
-    public Order createOrderAndPay(Long userId, CreateOrderRequest request) {
+    public Order execute(Long userId, CreateOrderRequest request) {
         // 1. 사용자 조회
         User user = userService.getUser(userId);
 
@@ -122,25 +129,5 @@ public class OrderUseCase {
                 order.getId(), userId, finalAmount.getAmount());
 
         return order;
-    }
-
-    /**
-     * 사용자 주문 목록 조회
-     *
-     * @param userId 사용자 ID
-     * @return 주문 목록
-     */
-    public List<Order> getUserOrders(Long userId) {
-        return orderService.getUserOrders(userId);
-    }
-
-    /**
-     * 주문 상세 조회
-     *
-     * @param orderId 주문 ID
-     * @return 주문
-     */
-    public Order getOrder(Long orderId) {
-        return orderService.getOrder(orderId);
     }
 }

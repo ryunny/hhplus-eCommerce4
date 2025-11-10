@@ -1,6 +1,11 @@
 package com.hhplus.ecommerce.presentation.controller;
 
-import com.hhplus.ecommerce.application.usecase.CartUseCase;
+import com.hhplus.ecommerce.application.command.AddToCartCommand;
+import com.hhplus.ecommerce.application.query.GetCartItemsQuery;
+import com.hhplus.ecommerce.application.usecase.cart.AddToCartUseCase;
+import com.hhplus.ecommerce.application.usecase.cart.ClearCartUseCase;
+import com.hhplus.ecommerce.application.usecase.cart.GetCartItemsUseCase;
+import com.hhplus.ecommerce.application.usecase.cart.RemoveFromCartUseCase;
 import com.hhplus.ecommerce.domain.entity.CartItem;
 import com.hhplus.ecommerce.presentation.dto.AddCartItemRequest;
 import com.hhplus.ecommerce.presentation.dto.CartItemResponse;
@@ -15,19 +20,24 @@ import java.util.List;
 @RequiredArgsConstructor
 public class CartController {
 
-    private final CartUseCase cartUseCase;
+    private final AddToCartUseCase addToCartUseCase;
+    private final GetCartItemsUseCase getCartItemsUseCase;
+    private final RemoveFromCartUseCase removeFromCartUseCase;
+    private final ClearCartUseCase clearCartUseCase;
 
     @PostMapping("/{userId}/items")
     public ResponseEntity<CartItemResponse> addToCart(
             @PathVariable Long userId,
             @RequestBody AddCartItemRequest request) {
-        CartItem cartItem = cartUseCase.addToCart(userId, request.productId(), request.quantity());
+        AddToCartCommand command = new AddToCartCommand(userId, request.productId(), request.quantity());
+        CartItem cartItem = addToCartUseCase.execute(command);
         return ResponseEntity.ok(CartItemResponse.from(cartItem));
     }
 
     @GetMapping("/{userId}")
     public ResponseEntity<List<CartItemResponse>> getCartItems(@PathVariable Long userId) {
-        List<CartItem> cartItems = cartUseCase.getCartItems(userId);
+        GetCartItemsQuery query = new GetCartItemsQuery(userId);
+        List<CartItem> cartItems = getCartItemsUseCase.execute(query);
         List<CartItemResponse> response = cartItems.stream()
                 .map(CartItemResponse::from)
                 .toList();
@@ -36,13 +46,13 @@ public class CartController {
 
     @DeleteMapping("/items/{cartItemId}")
     public ResponseEntity<Void> removeFromCart(@PathVariable Long cartItemId) {
-        cartUseCase.removeFromCart(cartItemId);
+        removeFromCartUseCase.execute(cartItemId);
         return ResponseEntity.noContent().build();
     }
 
     @DeleteMapping("/{userId}/clear")
     public ResponseEntity<Void> clearCart(@PathVariable Long userId) {
-        cartUseCase.clearCart(userId);
+        clearCartUseCase.execute(userId);
         return ResponseEntity.noContent().build();
     }
 }
