@@ -80,6 +80,7 @@ public abstract class BaseIntegrationTest {
             statement.execute("TRUNCATE TABLE categories");
             statement.execute("TRUNCATE TABLE users");
             statement.execute("TRUNCATE TABLE refunds");
+            statement.execute("TRUNCATE TABLE shipping_addresses");
 
             // 외래 키 체크 활성화
             statement.execute("SET FOREIGN_KEY_CHECKS = 1");
