@@ -103,14 +103,18 @@ public class ProductService {
     }
 
     /**
-     * 인기 상품 조회 (개선된 메서드)
+     * 인기 상품 집계 조회 (스케줄러 전용)
      * 최근 3일간 판매량 기준 상위 N개 상품의 통계를 반환합니다.
+     *
+     * ⚠️ 주의: 이 메서드는 PopularProductScheduler에서만 사용됩니다.
+     * 일반 API에서는 popular_products 테이블을 직접 조회하세요.
      *
      * Repository에서 DTO를 직접 반환하므로 중복 연산이 제거되었습니다.
      *
      * @param limit 조회할 상품 개수
      * @return 상품 판매 통계 DTO 목록
      */
+    @Transactional(readOnly = true)
     public List<ProductSalesDto> getTopSellingProducts(int limit) {
         LocalDateTime threeDaysAgo = LocalDateTime.now().minusDays(3);
         return orderItemRepository.getTopSellingProducts(threeDaysAgo, limit);

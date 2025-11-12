@@ -33,7 +33,17 @@ public class OrderItemRepositoryImpl implements OrderItemRepository {
 
     @Override
     public List<ProductSalesDto> getTopSellingProducts(LocalDateTime threeDaysAgo, int limit) {
-        return orderItemJpaRepository.getTopSellingProducts(threeDaysAgo, limit);
+        List<Object[]> results = orderItemJpaRepository.getTopSellingProducts(threeDaysAgo, limit);
+
+        return results.stream()
+                .map(row -> new ProductSalesDto(
+                        ((Number) row[0]).longValue(),     // productId
+                        (String) row[1],                    // productName
+                        ((Number) row[2]).longValue(),     // price
+                        ((Number) row[3]).intValue(),      // totalSalesQuantity
+                        (String) row[4]                     // categoryName
+                ))
+                .toList();
     }
 
     @Override
