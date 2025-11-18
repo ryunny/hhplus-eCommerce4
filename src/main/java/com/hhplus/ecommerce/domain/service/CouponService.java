@@ -48,6 +48,7 @@ public class CouponService {
      * @param couponId 쿠폰 ID
      * @return 쿠폰
      */
+    @Transactional(readOnly = true)
     public Coupon getCoupon(Long couponId) {
         return couponRepository.findById(couponId)
                 .orElseThrow(() -> new IllegalArgumentException("쿠폰을 찾을 수 없습니다: " + couponId));
@@ -58,6 +59,7 @@ public class CouponService {
      *
      * @return 발급 가능한 쿠폰 목록
      */
+    @Transactional(readOnly = true)
     public List<Coupon> getIssuableCoupons() {
         return couponRepository.findIssuableCoupons(LocalDateTime.now());
     }
@@ -68,6 +70,7 @@ public class CouponService {
      * @param userId 사용자 ID
      * @return 사용자 쿠폰 목록
      */
+    @Transactional(readOnly = true)
     public List<UserCoupon> getUserCoupons(Long userId) {
         return userCouponRepository.findByUserId(userId);
     }
@@ -78,6 +81,7 @@ public class CouponService {
      * @param userId 사용자 ID
      * @return 사용 가능한 쿠폰 목록
      */
+    @Transactional(readOnly = true)
     public List<UserCoupon> getAvailableCoupons(Long userId) {
         return userCouponRepository.findByUserIdAndStatus(userId, CouponStatus.UNUSED);
     }
@@ -88,6 +92,7 @@ public class CouponService {
      * @param userCouponId 사용자 쿠폰 ID
      * @return UserCoupon
      */
+    @Transactional(readOnly = true)
     public UserCoupon getUserCoupon(Long userCouponId) {
         return userCouponRepository.findById(userCouponId)
                 .orElseThrow(() -> new IllegalArgumentException("쿠폰을 찾을 수 없습니다: " + userCouponId));
@@ -150,39 +155,63 @@ public class CouponService {
     /**
      * 즉시 쿠폰 발급
      *
-     * DB 비관적 락(Pessimistic Lock)을 사용하여 동시성 제어를 수행합니다.
-     * 선착순 쿠폰의 경우 Race Condition을 방지하여 정확한 수량만큼만 발급됩니다.
+     * 트랜잭션 범위를 최소화하여 DB 락 시간을 줄입니다.
+     * - 트랜잭션 밖: 사용자 조회, 사전 검증 (중복, 발급 가능 여부)
+     * - 트랜잭션 안: 비관적 락 + 재검증 + 쓰기만 수행
      *
      * @param userId 사용자 ID
      * @param couponId 쿠폰 ID
      * @return 발급된 UserCoupon
      */
-    @Transactional
     public UserCoupon issueCoupon(Long userId, Long couponId) {
-        // 1. 사용자 조회
+        // 1. 사용자 조회 (트랜잭션 밖)
         User user = userService.getUser(userId);
 
-        // 2. 쿠폰 정보 조회 (비관적 락 - SELECT ... FOR UPDATE)
-        Coupon coupon = couponRepository.findByIdWithLock(couponId)
-                .orElseThrow(() -> new IllegalArgumentException("쿠폰을 찾을 수 없습니다: " + couponId));
+        // 2. 쿠폰 정보 사전 조회 (트랜잭션 밖 - 일반 SELECT)
+        Coupon coupon = getCoupon(couponId);
 
-        // 3. 이미 발급받았는지 확인
+        // 3. 사전 검증: 이미 발급받았는지 확인 (트랜잭션 밖)
         Optional<UserCoupon> existingCoupon = userCouponRepository.findByUserIdAndCouponId(userId, couponId);
         if (existingCoupon.isPresent()) {
             throw new IllegalStateException("이미 발급받은 쿠폰입니다.");
         }
 
-        // 4. 발급 가능 여부 확인 (DB 락으로 보호됨 - Race Condition 방지!)
+        // 4. 사전 검증: 발급 가능 여부 확인 (트랜잭션 밖)
         if (!coupon.isIssuable()) {
             throw new IllegalStateException("쿠폰의 모든 수량이 소진되었습니다.");
         }
 
-        // 5. 트랜잭션 처리 (원자적 실행)
-        // 5-1. 발급 수량 증가
+        // 5. 실제 쓰기 작업만 트랜잭션 안에서 (락 시간 최소화)
+        return issueCouponWithLock(user, couponId);
+    }
+
+    /**
+     * 쿠폰 발급 (DB 락 사용 - 트랜잭션 범위 최소화)
+     *
+     * 비관적 락을 사용하여 동시성을 제어하며, 락 시간을 최소화합니다.
+     * - 락 획득 → 재검증 → 쓰기 → 락 해제 (최소 시간)
+     *
+     * @param user 사용자
+     * @param couponId 쿠폰 ID
+     * @return 발급된 UserCoupon
+     */
+    @Transactional
+    private UserCoupon issueCouponWithLock(User user, Long couponId) {
+        // 1. 쿠폰 조회 (비관적 락 - SELECT ... FOR UPDATE) - 락 시작!
+        Coupon coupon = couponRepository.findByIdWithLock(couponId)
+                .orElseThrow(() -> new IllegalArgumentException("쿠폰을 찾을 수 없습니다: " + couponId));
+
+        // 2. 재검증: 발급 가능 여부 (동시성 문제 대비)
+        if (!coupon.isIssuable()) {
+            throw new IllegalStateException("쿠폰의 모든 수량이 소진되었습니다.");
+        }
+
+        // 3. 쓰기 작업 (원자적 실행)
+        // 3-1. 발급 수량 증가
         coupon.increaseIssuedQuantity();
         couponRepository.save(coupon);
 
-        // 5-2. 사용자 쿠폰 생성
+        // 3-2. 사용자 쿠폰 생성
         UserCoupon userCoupon = new UserCoupon(
                 user,
                 coupon,
@@ -192,6 +221,7 @@ public class CouponService {
         userCouponRepository.save(userCoupon);
 
         return userCoupon;
+        // 락 해제!
     }
 
     // ===== 쿠폰 만료 =====
@@ -240,42 +270,66 @@ public class CouponService {
     /**
      * 선착순 쿠폰 대기열 진입
      *
-     * 사용자를 대기열에 등록하고 현재 대기 순번을 반환합니다.
+     * 트랜잭션 범위를 최소화하여 DB 커넥션 점유 시간을 줄입니다.
+     * - 트랜잭션 밖: 사용자/쿠폰 조회, 기존 대기열 검증
+     * - 트랜잭션 안: 대기 인원 계산 + 대기열 생성 (쓰기만)
      *
      * @param userId 사용자 ID
      * @param couponId 쿠폰 ID
      * @return 생성된 CouponQueue (대기 정보 포함)
      */
-    @Transactional
     public CouponQueue joinQueue(Long userId, Long couponId) {
-        // 1. 사용자 조회
+        // 1. 사용자 조회 (트랜잭션 밖)
         User user = userService.getUser(userId);
 
-        // 2. 쿠폰 조회
+        // 2. 쿠폰 조회 (트랜잭션 밖)
         Coupon coupon = getCoupon(couponId);
 
-        // 3. 이미 대기열에 있는지 확인
+        // 3. 기존 대기열 검증 (트랜잭션 밖)
+        validateExistingQueue(userId, couponId);
+
+        // 4. 대기열 생성 (트랜잭션 안 - 쓰기만)
+        return createQueue(user, coupon);
+    }
+
+    /**
+     * 기존 대기열 검증
+     *
+     * @param userId 사용자 ID
+     * @param couponId 쿠폰 ID
+     */
+    private void validateExistingQueue(Long userId, Long couponId) {
         Optional<CouponQueue> existingQueue = couponQueueRepository.findByUserIdAndCouponId(userId, couponId);
         if (existingQueue.isPresent()) {
             CouponQueue existing = existingQueue.get();
             if (existing.getStatus() == CouponQueueStatus.WAITING || existing.getStatus() == CouponQueueStatus.PROCESSING) {
-                return existing; // 이미 대기 중
+                throw new IllegalStateException("이미 대기열에 진입했습니다. 현재 순번: " + existing.getQueuePosition());
             }
             if (existing.getStatus() == CouponQueueStatus.COMPLETED) {
                 throw new IllegalStateException("이미 발급받은 쿠폰입니다.");
             }
         }
+    }
 
-        // 4. 현재 대기 인원 계산
-        int waitingCount = couponQueueRepository.countByCouponIdAndStatus(couponId, CouponQueueStatus.WAITING);
-        int processingCount = couponQueueRepository.countByCouponIdAndStatus(couponId, CouponQueueStatus.PROCESSING);
+    /**
+     * 대기열 생성 (트랜잭션 - 쓰기만)
+     *
+     * @param user 사용자
+     * @param coupon 쿠폰
+     * @return 생성된 CouponQueue
+     */
+    @Transactional
+    private CouponQueue createQueue(User user, Coupon coupon) {
+        // 1. 현재 대기 인원 계산
+        int waitingCount = couponQueueRepository.countByCouponIdAndStatus(coupon.getId(), CouponQueueStatus.WAITING);
+        int processingCount = couponQueueRepository.countByCouponIdAndStatus(coupon.getId(), CouponQueueStatus.PROCESSING);
         int queuePosition = waitingCount + processingCount + 1;
 
-        // 5. 대기열 생성
+        // 2. 대기열 생성
         CouponQueue couponQueue = new CouponQueue(user, coupon, CouponQueueStatus.WAITING, queuePosition);
         couponQueueRepository.save(couponQueue);
 
-        log.info("대기열 진입: userId={}, couponId={}, position={}", userId, couponId, queuePosition);
+        log.info("대기열 진입: userId={}, couponId={}, position={}", user.getId(), coupon.getId(), queuePosition);
         return couponQueue;
     }
 
@@ -286,6 +340,7 @@ public class CouponService {
      * @param couponId 쿠폰 ID
      * @return 대기열 정보
      */
+    @Transactional(readOnly = true)
     public CouponQueue getQueueStatus(Long userId, Long couponId) {
         return couponQueueRepository.findByUserIdAndCouponId(userId, couponId)
                 .orElseThrow(() -> new IllegalArgumentException("대기열에 진입하지 않았습니다."));
@@ -321,40 +376,40 @@ public class CouponService {
     /**
      * 개별 대기열 항목 처리
      *
+     * 배치 처리 메서드로, 트랜잭션 범위가 길지만 순차 처리되므로 동시성 문제는 없습니다.
+     * - 상태 변경 → 쿠폰 발급 → 결과 업데이트를 하나의 트랜잭션으로 처리
+     * - 실패 시 자동 롤백되어 데이터 정합성 보장
+     *
      * @param queue 처리할 대기열 항목
      */
     @Transactional
     public void processQueueItem(CouponQueue queue) {
         try {
-            // 상태 변경: WAITING -> PROCESSING
+            // 1. 상태 변경: WAITING -> PROCESSING
             queue.updateStatus(CouponQueueStatus.PROCESSING);
             couponQueueRepository.save(queue);
 
-            // 최신 쿠폰 정보 조회 (비관적 락 - SELECT ... FOR UPDATE)
+            // 2. 최신 쿠폰 정보 조회 (비관적 락 - SELECT ... FOR UPDATE)
             Coupon coupon = couponRepository.findByIdWithLock(queue.getCoupon().getId())
                     .orElseThrow(() -> new IllegalArgumentException("쿠폰을 찾을 수 없습니다: " + queue.getCoupon().getId()));
 
-            // 이미 발급받았는지 확인
+            // 3. 중복 발급 검증
             Optional<UserCoupon> existing = userCouponRepository.findByUserIdAndCouponId(
                     queue.getUser().getId(), coupon.getId());
             if (existing.isPresent()) {
-                queue.updateStatus(CouponQueueStatus.FAILED);
-                queue.setFailedReason("이미 발급받은 쿠폰입니다.");
-                couponQueueRepository.save(queue);
+                updateQueueFailed(queue, "이미 발급받은 쿠폰입니다.");
                 log.warn("이미 발급: userId={}, couponId={}", queue.getUser().getId(), coupon.getId());
                 return;
             }
 
-            // 발급 가능 여부 확인 (DB 락으로 보호됨)
+            // 4. 발급 가능 여부 확인
             if (!coupon.isIssuable()) {
-                queue.updateStatus(CouponQueueStatus.FAILED);
-                queue.setFailedReason("쿠폰의 모든 수량이 소진되었습니다.");
-                couponQueueRepository.save(queue);
+                updateQueueFailed(queue, "쿠폰의 모든 수량이 소진되었습니다.");
                 log.warn("수량 소진: couponId={}", coupon.getId());
                 return;
             }
 
-            // 쿠폰 발급
+            // 5. 쿠폰 발급 처리
             coupon.increaseIssuedQuantity();
             couponRepository.save(coupon);
 
@@ -366,18 +421,28 @@ public class CouponService {
             );
             userCouponRepository.save(userCoupon);
 
-            // 상태 변경: PROCESSING -> COMPLETED
+            // 6. 상태 변경: PROCESSING -> COMPLETED
             queue.updateStatus(CouponQueueStatus.COMPLETED);
             couponQueueRepository.save(queue);
 
             log.info("쿠폰 발급 완료: userId={}, couponId={}", queue.getUser().getId(), coupon.getId());
 
         } catch (Exception e) {
-            queue.updateStatus(CouponQueueStatus.FAILED);
-            queue.setFailedReason("발급 처리 중 오류: " + e.getMessage());
-            couponQueueRepository.save(queue);
+            updateQueueFailed(queue, "발급 처리 중 오류: " + e.getMessage());
             log.error("대기열 처리 실패: queueId={}", queue.getId(), e);
         }
+    }
+
+    /**
+     * 대기열 실패 상태 업데이트
+     *
+     * @param queue 대기열
+     * @param reason 실패 사유
+     */
+    private void updateQueueFailed(CouponQueue queue, String reason) {
+        queue.updateStatus(CouponQueueStatus.FAILED);
+        queue.setFailedReason(reason);
+        couponQueueRepository.save(queue);
     }
 
     /**
@@ -408,6 +473,7 @@ public class CouponService {
      * @param publicId 사용자 Public ID (UUID)
      * @return 사용자 쿠폰 목록
      */
+    @Transactional(readOnly = true)
     public List<UserCoupon> getUserCouponsByPublicId(String publicId) {
         User user = userService.getUserByPublicId(publicId);
         return getUserCoupons(user.getId());
@@ -419,6 +485,7 @@ public class CouponService {
      * @param publicId 사용자 Public ID (UUID)
      * @return 사용 가능한 쿠폰 목록
      */
+    @Transactional(readOnly = true)
     public List<UserCoupon> getAvailableCouponsByPublicId(String publicId) {
         User user = userService.getUserByPublicId(publicId);
         return getAvailableCoupons(user.getId());
@@ -455,6 +522,7 @@ public class CouponService {
      * @param couponId 쿠폰 ID
      * @return 대기열 정보
      */
+    @Transactional(readOnly = true)
     public CouponQueue getQueueStatusByPublicId(String publicId, Long couponId) {
         User user = userService.getUserByPublicId(publicId);
         return getQueueStatus(user.getId(), couponId);
