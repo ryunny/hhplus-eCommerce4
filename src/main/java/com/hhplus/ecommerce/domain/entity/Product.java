@@ -37,6 +37,9 @@ public class Product {
     @Column(nullable = false)
     private Stock stock;
 
+    @Version
+    private Long version;
+
     @CreationTimestamp
     @Column(nullable = false, updatable = false)
     private LocalDateTime createdAt;

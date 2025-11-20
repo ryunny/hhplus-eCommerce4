@@ -33,8 +33,8 @@ CREATE TABLE users (
     phone VARCHAR(20) NOT NULL COMMENT '전화번호',
     balance BIGINT NOT NULL DEFAULT 0 COMMENT '잔액 (원)',
     created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '생성 일시'
-    -- INDEX idx_public_id (public_id),
-    -- INDEX idx_email (email)
+    -- UNIQUE 제약조건이 자동으로 인덱스를 생성하므로 별도 인덱스 불필요
+    -- public_id와 email은 UNIQUE 제약조건으로 이미 인덱스가 있음
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='사용자 테이블';
 
 -- ==================================================
@@ -43,8 +43,8 @@ CREATE TABLE users (
 CREATE TABLE categories (
     id BIGINT AUTO_INCREMENT PRIMARY KEY,
     name VARCHAR(100) NOT NULL COMMENT '카테고리명',
-    created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '생성 일시'
-    -- INDEX idx_name (name)
+    created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '생성 일시',
+    INDEX idx_name (name)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='상품 카테고리';
 
 -- ==================================================
@@ -57,9 +57,10 @@ CREATE TABLE products (
     description TEXT COMMENT '상품 설명',
     price BIGINT NOT NULL COMMENT '가격 (원)',
     stock INT NOT NULL DEFAULT 0 COMMENT '재고 수량',
-    created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '생성 일시'
-    -- INDEX idx_category_id (category_id),
-    -- INDEX idx_name (name)
+    version BIGINT DEFAULT 0 COMMENT '낙관적 락 버전',
+    created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '생성 일시',
+    INDEX idx_category_id (category_id),
+    INDEX idx_name (name)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='상품';
 
 -- ==================================================
@@ -73,9 +74,9 @@ CREATE TABLE shipping_addresses (
     address VARCHAR(500) NOT NULL COMMENT '배송 주소',
     phone VARCHAR(20) NOT NULL COMMENT '연락처',
     is_default BOOLEAN NOT NULL DEFAULT FALSE COMMENT '기본 배송지 여부',
-    created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '생성 일시'
-    -- INDEX idx_user_id (user_id),
-    -- INDEX idx_user_default (user_id, is_default)
+    created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '생성 일시',
+    INDEX idx_user_id (user_id),
+    INDEX idx_user_default (user_id, is_default)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='배송지 정보';
 
 -- ==================================================
@@ -92,9 +93,9 @@ CREATE TABLE coupons (
     issued_quantity INT NOT NULL DEFAULT 0 COMMENT '발급된 수량',
     start_date DATETIME NOT NULL COMMENT '쿠폰 시작일',
     end_date DATETIME NOT NULL COMMENT '쿠폰 종료일',
-    use_queue BOOLEAN NOT NULL DEFAULT FALSE COMMENT '대기열 사용 여부'
-    -- INDEX idx_dates (start_date, end_date),
-    -- INDEX idx_type (coupon_type)
+    use_queue BOOLEAN NOT NULL DEFAULT FALSE COMMENT '대기열 사용 여부',
+    INDEX idx_dates (start_date, end_date),
+    INDEX idx_type (coupon_type)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='쿠폰 마스터';
 
 -- ==================================================
@@ -106,10 +107,10 @@ CREATE TABLE user_coupons (
     coupon_id BIGINT NOT NULL COMMENT '쿠폰 ID',
     status VARCHAR(20) NOT NULL COMMENT '상태',
     issued_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '발급 일시',
-    expires_at DATETIME NOT NULL COMMENT '만료 일시'
-    -- INDEX idx_user_status (user_id, status),
-    -- INDEX idx_coupon_id (coupon_id),
-    -- INDEX idx_expires_at (expires_at)
+    expires_at DATETIME NOT NULL COMMENT '만료 일시',
+    INDEX idx_user_status (user_id, status),
+    INDEX idx_coupon_id (coupon_id),
+    INDEX idx_expires_at (expires_at)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='사용자 보유 쿠폰';
 
 -- ==================================================
@@ -123,10 +124,10 @@ CREATE TABLE coupon_queues (
     queue_position INT NOT NULL COMMENT '대기 순번',
     processed_at DATETIME COMMENT '처리 완료 일시',
     failed_reason VARCHAR(500) COMMENT '실패 사유',
-    created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '생성 일시'
-    -- INDEX idx_coupon_status (coupon_id, status),
-    -- INDEX idx_user_coupon (user_id, coupon_id),
-    -- INDEX idx_queue_position (queue_position)
+    created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '생성 일시',
+    INDEX idx_coupon_status (coupon_id, status),
+    INDEX idx_user_coupon (user_id, coupon_id),
+    INDEX idx_queue_position (queue_position)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='쿠폰 발급 대기열';
 
 -- ==================================================
@@ -145,11 +146,11 @@ CREATE TABLE orders (
     discount_amount BIGINT NOT NULL DEFAULT 0 COMMENT '할인 금액',
     final_amount BIGINT NOT NULL COMMENT '최종 결제 금액',
     status VARCHAR(20) NOT NULL COMMENT '주문 상태',
-    created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '주문 일시'
-    -- INDEX idx_order_number (order_number),
-    -- INDEX idx_user_id (user_id),
-    -- INDEX idx_status (status),
-    -- INDEX idx_created_at (created_at)
+    created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '주문 일시',
+    -- order_number는 UNIQUE 제약조건으로 이미 인덱스가 있음
+    INDEX idx_user_id (user_id),
+    INDEX idx_status (status),
+    INDEX idx_created_at (created_at)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='주문';
 
 -- ==================================================
@@ -162,9 +163,9 @@ CREATE TABLE order_items (
     quantity INT NOT NULL COMMENT '수량',
     unit_price BIGINT NOT NULL COMMENT '단가',
     subtotal BIGINT NOT NULL COMMENT '소계',
-    created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '생성 일시'
-    -- INDEX idx_order_id (order_id),
-    -- INDEX idx_product_id (product_id)
+    created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '생성 일시',
+    INDEX idx_order_id (order_id),
+    INDEX idx_product_id (product_id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='주문 상품 상세';
 
 -- ==================================================
@@ -177,11 +178,11 @@ CREATE TABLE payments (
     paid_amount BIGINT NOT NULL COMMENT '결제 금액',
     status VARCHAR(20) NOT NULL COMMENT '결제 상태',
     data_transmission_status VARCHAR(20) NOT NULL COMMENT '데이터 전송 상태',
-    created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '결제 일시'
-    -- INDEX idx_payment_id (payment_id),
-    -- INDEX idx_order_id (order_id),
-    -- INDEX idx_status (status),
-    -- INDEX idx_data_transmission_status (data_transmission_status)
+    created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '결제 일시',
+    -- payment_id는 UNIQUE 제약조건으로 이미 인덱스가 있음
+    INDEX idx_order_id (order_id),
+    INDEX idx_status (status),
+    INDEX idx_data_transmission_status (data_transmission_status)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='결제 정보';
 
 -- ==================================================
@@ -193,8 +194,8 @@ CREATE TABLE cart_items (
     product_id BIGINT NOT NULL COMMENT '상품 ID',
     quantity INT NOT NULL COMMENT '수량',
     created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '생성 일시',
-    -- INDEX idx_user_id (user_id),
-    -- INDEX idx_product_id (product_id),
+    INDEX idx_user_id (user_id),
+    INDEX idx_product_id (product_id),
     UNIQUE KEY uk_user_product (user_id, product_id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='장바구니';
 
@@ -207,9 +208,9 @@ CREATE TABLE refunds (
     refund_amount BIGINT NOT NULL COMMENT '환불 금액',
     reason VARCHAR(500) COMMENT '환불 사유',
     status VARCHAR(20) NOT NULL COMMENT '환불 상태',
-    created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '생성 일시'
-    -- INDEX idx_order_id (order_id),
-    -- INDEX idx_status (status)
+    created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '생성 일시',
+    INDEX idx_order_id (order_id),
+    INDEX idx_status (status)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='환불';
 
 -- ==================================================
@@ -224,9 +225,9 @@ CREATE TABLE outbox_events (
     retry_count INT NOT NULL DEFAULT 0 COMMENT '재시도 횟수',
     created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '생성 일시',
     processed_at DATETIME COMMENT '처리 완료 일시',
-    failed_reason VARCHAR(500) COMMENT '실패 사유'
-    -- INDEX idx_status_retry (status, retry_count),
-    -- INDEX idx_created_at (created_at)
+    failed_reason VARCHAR(500) COMMENT '실패 사유',
+    INDEX idx_status_retry (status, retry_count),
+    INDEX idx_created_at (created_at)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='아웃박스 패턴 이벤트';
 
 -- ==================================================
@@ -240,9 +241,9 @@ CREATE TABLE popular_products (
     price BIGINT NOT NULL COMMENT '가격',
     total_sales_quantity INT NOT NULL COMMENT '총 판매 수량',
     category_name VARCHAR(100) NOT NULL COMMENT '카테고리명',
-    updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '업데이트 일시'
-    -- INDEX idx_rank (`rank`),
-    -- INDEX idx_updated_at (updated_at)
+    updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '업데이트 일시',
+    -- rank는 UNIQUE 제약조건으로 이미 인덱스가 있음
+    INDEX idx_updated_at (updated_at)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='인기 상품 캐시 테이블';
 
 -- ==================================================
