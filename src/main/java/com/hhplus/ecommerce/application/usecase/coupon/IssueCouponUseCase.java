@@ -5,7 +5,6 @@ import com.hhplus.ecommerce.domain.entity.Coupon;
 import com.hhplus.ecommerce.domain.entity.UserCoupon;
 import com.hhplus.ecommerce.domain.service.CouponService;
 import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
 
 /**
  * 쿠폰 발급 UseCase (통합)
@@ -25,7 +24,6 @@ public class IssueCouponUseCase {
         this.couponService = couponService;
     }
 
-    @Transactional
     public UserCoupon execute(IssueCouponCommand command) {
         // 1. 쿠폰 정보 조회 (발급 방식 확인을 위해)
         Coupon coupon = couponService.getCoupon(command.couponId());
@@ -36,7 +34,7 @@ public class IssueCouponUseCase {
             couponService.joinQueueByPublicId(command.publicId(), command.couponId());
             return null; // 대기 중 (스케줄러가 처리)
         } else {
-            // 즉시 발급 방식
+            // 즉시 발급 방식 (트랜잭션은 Service에서 관리)
             return couponService.issueCouponByPublicId(command.publicId(), command.couponId());
         }
     }
