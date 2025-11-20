@@ -57,7 +57,6 @@ CREATE TABLE products (
     description TEXT COMMENT '상품 설명',
     price BIGINT NOT NULL COMMENT '가격 (원)',
     stock INT NOT NULL DEFAULT 0 COMMENT '재고 수량',
-    version BIGINT DEFAULT 0 COMMENT '낙관적 락 버전',
     created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '생성 일시',
     INDEX idx_category_id (category_id),
     INDEX idx_name (name)
